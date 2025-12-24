@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PV Suitability & Energy Potential – Adana (Raster Prototype)</title>
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <style>
+    :root{
+      --bg:#0b1220; --panel:#0f1a33; --panel2:#0c162b; --txt:#e6eefc;
+      --muted:#9db0d0; --line:rgba(255,255,255,.08); --accent:#6aa6ff;
+      --chip:#122147;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Arial;}
+    .wrap{display:grid;grid-template-columns:360px 1fr;height:100vh;gap:14px;padding:14px;box-sizing:border-box;}
+    .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:16px;padding:16px;overflow:auto;}
+    .title{font-size:18px;font-weight:700;margin:0 0 10px 0;}
+    .sub{font-size:12px;color:var(--muted);line-height:1.35;margin:0 0 14px 0;}
+    .card{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:14px;padding:12px;margin:12px 0;}
+    .label{font-size:12px;color:var(--muted);margin:0 0 6px 0;}
+    select,input[type="range"],input[type="number"]{width:100%;}
+    select,input[type="number"]{
+      background:#081022;color:var(--txt);
+      border:1px solid var(--line);border-radius:10px;padding:10px;
+      outline:none;
+    }
+    input[type="range"]{accent-color:var(--accent);}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .btn{
+      width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);
+      background:rgba(106,166,255,.12);color:var(--txt);cursor:pointer;font-weight:600;
+    }
+    .btn:hover{background:rgba(106,166,255,.18);}
+    .kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .kpi{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:14px;padding:10px;}
+    .kpi .k{font-size:11px;color:var(--muted);margin-bottom:6px;}
+    .kpi .v{font-size:16px;font-weight:800;}
+    .note{font-size:12px;color:var(--muted);line-height:1.35;}
+    #map{border-radius:16px;border:1px solid var(--line);overflow:hidden;}
+    .legend{
+      background:rgba(10,18,35,.9);border:1px solid var(--line);border-radius:12px;
+      padding:10px 12px;color:var(--txt);font-size:12px;line-height:1.25;
+    }
+    .legend h4{margin:0 0 8px 0;font-size:12px;}
+    .legrow{display:flex;align-items:center;gap:8px;margin:6px 0;}
+    .sw{width:16px;height:10px;border-radius:2px;border:1px solid rgba(255,255,255,.25);}
+    .hr{height:1px;background:var(--line);margin:10px 0;}
+    .small{font-size:11px;color:var(--muted);}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- LEFT PANEL -->
+    <aside class="panel">
+      <h1 class="title">PV Suitability & Energy Potential – Adana (Raster)</h1>
+      <p class="sub">
+        Polygon çizimi kaldırıldı. Kullanıcı; PV teknolojisi, suitability sınıfı ve kullanılacak alan yüzdesini seçer.
+        Sonuçlar, GIS’ten türetilmiş alan istatistikleri ve sınıf bazlı ortalama solar radiation ile hesaplanır.
+      </p>
+
+      <div class="card">
+        <div class="label">PV Technology (efficiency)</div>
+        <select id="pvTech"></select>
+
+        <div style="height:10px"></div>
+        <div class="label">Suitability class</div>
+        <select id="sClass">
+          <option value="high">Highly suitable</option>
+          <option value="mod">Moderately suitable</option>
+          <option value="low">Low suitable</option>
+        </select>
+
+        <div style="height:10px"></div>
+        <div class="label">Area use (%)</div>
+        <input id="areaPct" type="range" min="0" max="100" value="10" />
+        <div class="small">Selected: <span id="areaPctLabel">10</span>%</div>
+
+        <div class="hr"></div>
+
+        <div class="label">Layer opacity</div>
+        <div class="small">Suitability opacity</div>
+        <input id="opSuit" type="range" min="0" max="1" step="0.05" value="0.65"/>
+        <div class="small" style="margin-top:8px;">Solar radiation opacity</div>
+        <input id="opRad" type="range" min="0" max="1" step="0.05" value="0.45"/>
+
+        <div style="height:10px"></div>
+        <button class="btn" id="recalc">Recalculate</button>
+      </div>
+
+      <div class="card">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="k">Used area</div>
+            <div class="v" id="kpiArea">—</div>
+            <div class="small">km²</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Solar radiation used</div>
+            <div class="v" id="kpiSR">—</div>
+            <div class="small">kWh/m²/year</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Annual energy</div>
+            <div class="v" id="kpiE">—</div>
+            <div class="small">kWh/year</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Avoided CO₂</div>
+            <div class="v" id="kpiCO2">—</div>
+            <div class="small">kgCO₂/year</div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="note" id="assumptions"></div>
+      </div>
+
+      <div class="card">
+        <div class="label">What you still need to upload to GitHub</div>
+        <div class="note">
+          1) Suitability raster tiles: <b>/tiles/suitability/{z}/{x}/{y}.png</b><br/>
+          2) Solar radiation tiles: <b>/tiles/radiation/{z}/{x}/{y}.png</b><br/>
+          3) (Opsiyonel) Adana boundary tiles/mask yoksa da olur.
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAP -->
+    <main id="map"></main>
+  </div>
+
+  <script>
+    /******************************************************************
+     *  A) GIS’ten gelen sabit sayılar (sen bunları güncelleyeceksin)
+     *  - Alanlar: suitability sınıfına göre toplam alan (km²)
+     *  - SR_mean: suitability sınıfına göre solar radiation ortalaması (kWh/m²/year)
+     ******************************************************************/
+    const GIS_STATS = {
+      area_km2: {
+        high: 1406.75546808,
+        mod:  1359.54816032,
+        low:  1372.18918777
+      },
+      sr_mean_kwh_m2_y: {
+        // Sende çıkan değerler (örnek)
+        high: 1406.75546808,
+        mod:  1359.54816032,
+        low:  1372.18918777
+      }
+    };
+
+    /******************************************************************
+     *  B) Sabit varsayımlar (kullanıcıya seçtirmiyoruz)
+     ******************************************************************/
+    const FIXED = {
+      PR: 0.80,                 // performance ratio (sabit)
+      gridEF_kgco2_per_kwh: 0.45,// grid emission factor (kgCO2/kWh) - sabit
+      coverage: 1.0             // polygon yok, slider zaten "kullanılan alanı" belirliyor
+    };
+
+    /******************************************************************
+     *  C) PV teknoloji listesi (kullanıcı sadece bunu seçsin)
+     ******************************************************************/
+    const PV_TECH = [
+      { id:"csi",  name:"c-Si",  eff:0.131 },
+      { id:"asi",  name:"a-Si",  eff:0.079 },
+      { id:"cdte", name:"CdTe",  eff:0.088 },
+      { id:"cigs", name:"CIGS",  eff:0.084 },
+      { id:"cpv",  name:"CPV",   eff:0.263 }
+    ];
+
+    /******************************************************************
+     *  D) Map init
+     ******************************************************************/
+    const map = L.map("map", { zoomControl:true }).setView([37.0, 35.3], 8);
+
+    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    // Suitability raster tiles (sen üreteceksin)
+    // Örn klasör: /tiles/suitability/0/0/0.png ...
+    const suitabilityTiles = L.tileLayer("./tiles/suitability/{z}/{x}/{y}.png", {
+      maxZoom: 14,
+      opacity: 0.65,
+      attribution: "Suitability raster (AHP/MCDA)"
+    }).addTo(map);
+
+    // Solar radiation raster tiles (sen üreteceksin)
+    const radiationTiles = L.tileLayer("./tiles/radiation/{z}/{x}/{y}.png", {
+      maxZoom: 14,
+      opacity: 0.45,
+      attribution: "Solar radiation raster (ArcGIS Solar Analyst)"
+    }).addTo(map);
+
+    // Layer control (aç/kapa)
+    const overlays = {
+      "Suitability (raster)": suitabilityTiles,
+      "Solar radiation (raster)": radiationTiles
+    };
+    L.control.layers({ "OSM": osm }, overlays, { collapsed:false }).addTo(map);
+
+    /******************************************************************
+     *  E) Legend (Suitability)
+     *  Senin haritandaki sınıflar: 0,1,2,3 görünüyor.
+     *  Burada başlık + birim + sınıf adlarını yazıyoruz.
+     ******************************************************************/
+    const legend = L.control({position:"bottomright"});
+    legend.onAdd = function(){
+      const div = L.DomUtil.create("div","legend");
+      div.innerHTML = `
+        <h4>Suitability Map (AHP/MCDA)</h4>
+        <div class="small">Unit: ordinal class (0–3)</div>
+        <div class="hr"></div>
+        <div class="legrow"><span class="sw" style="background:#ffffff"></span> 0 = Restricted / NoData</div>
+        <div class="legrow"><span class="sw" style="background:#ff3b30"></span> 1 = Low suitable</div>
+        <div class="legrow"><span class="sw" style="background:#ffcc00"></span> 2 = Moderately suitable</div>
+        <div class="legrow"><span class="sw" style="background:#34c759"></span> 3 = Highly suitable</div>
+        <div class="hr"></div>
+        <div class="small">
+          Solar radiation layer: <b>kWh/m²/year</b> (continuous raster)
+        </div>
+      `;
+      return div;
+    };
+    legend.addTo(map);
+
+    /******************************************************************
+     *  F) UI wiring
+     ******************************************************************/
+    const pvTechEl = document.getElementById("pvTech");
+    const sClassEl = document.getElementById("sClass");
+    const areaPctEl = document.getElementById("areaPct");
+    const areaPctLabel = document.getElementById("areaPctLabel");
+    const opSuitEl = document.getElementById("opSuit");
+    const opRadEl  = document.getElementById("opRad");
+    const recalcBtn = document.getElementById("recalc");
+
+    // populate tech
+    PV_TECH.forEach(t=>{
+      const opt=document.createElement("option");
+      opt.value=t.id;
+      opt.textContent=`${t.name} (${(t.eff*100).toFixed(1)}%)`;
+      pvTechEl.appendChild(opt);
+    });
+
+    // defaults
+    pvTechEl.value = "csi";
+
+    areaPctEl.addEventListener("input", ()=>{
+      areaPctLabel.textContent = areaPctEl.value;
+    });
+
+    opSuitEl.addEventListener("input", ()=>{
+      suitabilityTiles.setOpacity(parseFloat(opSuitEl.value));
+    });
+    opRadEl.addEventListener("input", ()=>{
+      radiationTiles.setOpacity(parseFloat(opRadEl.value));
+    });
+
+    recalcBtn.addEventListener("click", ()=>recalc());
+
+    // Auto recalc on changes
+    [pvTechEl, sClassEl, areaPctEl].forEach(el=>{
+      el.addEventListener("change", recalc);
+    });
+
+    /******************************************************************
+     *  G) Calculations
+     *  E (kWh/y) = SR_mean (kWh/m²/y) * Area_used (m²) * PR * eff
+     *  CO2 (kg/y) = E (kWh/y) * gridEF (kg/kWh)
+     ******************************************************************/
+    function recalc(){
+      const tech = PV_TECH.find(x=>x.id===pvTechEl.value);
+      const cls  = sClassEl.value;
+      const pct  = parseFloat(areaPctEl.value)/100;
+
+      const totalArea_km2 = GIS_STATS.area_km2[cls];
+      const usedArea_km2  = totalArea_km2 * pct;
+      const usedArea_m2   = usedArea_km2 * 1_000_000;
+
+      const SR = GIS_STATS.sr_mean_kwh_m2_y[cls];
+
+      const E_kwh = SR * usedArea_m2 * FIXED.PR * tech.eff * FIXED.coverage;
+      const CO2_kg = E_kwh * FIXED.gridEF_kgco2_per_kwh;
+
+      // UI
+      document.getElementById("kpiArea").textContent = usedArea_km2.toFixed(2);
+      document.getElementById("kpiSR").textContent   = SR.toFixed(2);
+      document.getElementById("kpiE").textContent    = formatBig(E_kwh);
+      document.getElementById("kpiCO2").textContent  = formatBig(CO2_kg);
+
+      // assumptions text
+      document.getElementById("assumptions").innerHTML = `
+        <b>Fixed assumptions (not user inputs):</b><br/>
+        PR = ${FIXED.PR.toFixed(2)} (dimensionless), Grid EF = ${FIXED.gridEF_kgco2_per_kwh.toFixed(2)} kgCO₂/kWh.<br/>
+        <b>Energy formula:</b> E = SR × Area × PR × η<br/>
+        where SR is class-mean solar radiation (kWh/m²/year), Area is used area (m²), η is PV efficiency.
+      `;
+    }
+
+    function formatBig(x){
+      if (!isFinite(x)) return "—";
+      if (x >= 1e9) return (x/1e9).toFixed(2) + "B";
+      if (x >= 1e6) return (x/1e6).toFixed(2) + "M";
+      if (x >= 1e3) return (x/1e3).toFixed(2) + "K";
+      return x.toFixed(0);
+    }
+
+    // initial
+    recalc();
+  </script>
+</body>
+</html>
