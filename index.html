@@ -3,99 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akdeniz İnteraktif Haritası</title>
-    
+    <title>Akdeniz Ülkeleri Bayrak Haritası</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
     <style>
-        /* CSS AYARLARI */
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+        #map { height: 100vh; width: 100%; z-index: 1; background: #0a192f; }
+
+        /* Kontrol Paneli */
+        #control-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            width: 250px;
         }
 
-        #map {
-            height: 100vh;
-            width: 100%;
-            z-index: 1;
-        }
-
-        /* Sağ üstteki Logo Konteynırı */
         #logo-container {
             position: absolute;
             top: 20px;
             right: 20px;
             z-index: 1000;
-            pointer-events: none; /* Haritaya tıklamaya engel olmaz */
-            background: rgba(255, 255, 255, 0.8); /* Logonun arkasına hafif beyazlık */
+            background: rgba(255, 255, 255, 0.8);
             padding: 10px;
             border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
 
-        .navy-logo {
-            width: 100px; /* Logonu buradan boyutlandırabilirsin */
-            height: auto;
-            display: block;
-        }
-
-        /* Bilgi Kutucuğu (Popup) Stili */
-        .leaflet-popup-content-wrapper {
-            background: #1a2a44; /* Lacivert tonları */
-            color: white;
-            border-radius: 5px;
-        }
-        .leaflet-popup-tip {
-            background: #1a2a44;
-        }
+        .navy-logo { width: 80px; height: auto; }
+        .slider { width: 100%; cursor: pointer; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #1a2a44; }
     </style>
 </head>
 <body>
 
     <div id="logo-container">
-        <img src="logo.png" alt="Deniz Kuvvetleri Logosu" class="navy-logo" onerror="this.alt='Logo Yüklenemedi';">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Turkish_Naval_Forces_Command_Logo.svg/1200px-Turkish_Naval_Forces_Command_Logo.svg.png" alt="Logo" class="navy-logo">
+    </div>
+
+    <div id="control-panel">
+        <label>Bayrak Saydamlığı (Opacity)</label>
+        <input type="range" id="opacitySlider" min="0" max="100" value="50" class="slider">
+        <div id="opacityVal" style="text-align:center; font-size: 12px; margin-top:5px;">%50</div>
     </div>
 
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script>
-        // JAVASCRIPT AYARLARI
-        
-        // Haritayı Akdeniz'in merkezine (35, 20) ve uygun bir zoom seviyesine (5) odakla
         var map = L.map('map').setView([35.0, 20.0], 5);
 
-        // Harita alt tabanını (TileLayer) ekle - OpenStreetMap (Dark) versiyonu daha askeri durabilir
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors | Deniz Kuvvetleri Akdeniz İzleme'
+        // Koyu tema harita (Askeri görünüm için)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Akdeniz'e kıyısı olan ülkelerin listesi (Koordinatlar yaklaşıktır)
-        const coastalCountries = [
-            { name: "Türkiye", coords: [36.5, 32.5], info: "Mavi Vatan" },
-            { name: "KKTC", coords: [35.1, 33.3], info: "Yavru Vatan" },
-            { name: "Yunanistan", coords: [37.9, 23.7], info: "" },
-            { name: "İtalya", coords: [40.8, 14.2], info: "" },
-            { name: "Mısır", coords: [31.2, 29.9], info: "" },
-            { name: "Libya", coords: [32.8, 13.1], info: "" },
-            { name: "İspanya", coords: [36.7, -4.4], info: "" },
-            { name: "Fransa", coords: [43.2, 5.3], info: "" },
-            { name: "Cezayir", coords: [36.7, 3.0], info: "" }
-        ];
+        // Bayrak görselleri için SVG Pattern tanımları
+        const svgNS = "http://www.w3.org/2000/svg";
+        const defs = L.SVG.create('defs');
+        document.querySelector('#map svg').appendChild(defs);
 
-        // Her ülke için bir işaretçi (marker) ekle
-        coastalCountries.forEach(country => {
-            var marker = L.marker(country.coords).addTo(map);
-            marker.bindPopup(`<b>${country.name}</b><br>${country.info || 'Akdeniz Kıyısı'}`);
-        });
+        function createFlagPattern(id, url) {
+            const pattern = L.SVG.create('pattern');
+            pattern.setAttribute('id', id);
+            pattern.setAttribute('patternUnits', 'objectBoundingBox');
+            pattern.setAttribute('width', '1');
+            pattern.setAttribute('height', '1');
 
-        // Haritaya tıklayınca koordinat veren fonksiyon (Geliştirme için kolaylık sağlar)
-        map.on('click', function(e) {
-            console.log("Tıklanan Koordinat: " + e.latlng.lat + ", " + e.latlng.lng);
-        });
+            const image = L.SVG.create('image');
+            image.setAttribute('href', url);
+            image.setAttribute('width', '100%');
+            image.setAttribute('height', '100%');
+            image.setAttribute('preserveAspectRatio', 'none');
+            
+            pattern.appendChild(image);
+            defs.appendChild(pattern);
+        }
+
+        // Bayrak Linkleri
+        const flags = {
+            "Turkey": "https://flagcdn.com/w1280/tr.png",
+            "Greece": "https://flagcdn.com/w1280/gr.png",
+            "Italy": "https://flagcdn.com/w1280/it.png",
+            "Egypt": "https://flagcdn.com/w1280/eg.png",
+            "Libya": "https://flagcdn.com/w1280/ly.png"
+        };
+
+        Object.keys(flags).forEach(key => createFlagPattern('flag-' + key, flags[key]));
+
+        let geojsonLayer;
+
+        // Ülke sınırlarını getiren ve bayrakla boyayan fonksiyon
+        fetch('https://raw.githubusercontent.com/datasets/geo-boundaries-world-110m/master/countries.geojson')
+            .then(res => res.json())
+            .then(data => {
+                geojsonLayer = L.geoJson(data, {
+                    filter: function(feature) {
+                        return flags[feature.properties.name] !== undefined;
+                    },
+                    style: function(feature) {
+                        return {
+                            fillColor: 'url(#flag-' + feature.properties.name + ')',
+                            fillOpacity: 0.5,
+                            color: 'white',
+                            weight: 1
+                        };
+                    }
+                }).addTo(map);
+            });
+
+        // Slider Kontrolü
+        const slider = document.getElementById('opacitySlider');
+        const opacityText = document.getElementById('opacityVal');
+
+        slider.oninput = function() {
+            const val = this.value / 100;
+            opacityText.innerText = '%' + this.value;
+            if (geojsonLayer) {
+                geojsonLayer.setStyle({ fillOpacity: val });
+            }
+        };
     </script>
 </body>
 </html>
