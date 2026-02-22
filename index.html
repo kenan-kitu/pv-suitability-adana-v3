@@ -3,140 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Akdeniz Ülkeleri Operasyonel Haritası</title>
+    <title>Deniz Kuvvetleri - Akdeniz İzleme</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; background: #000; }
-        #map { height: 100vh; width: 100%; z-index: 1; }
-
+        body, html { margin: 0; padding: 0; height: 100%; background: #000b1a; font-family: 'Segoe UI', sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        
         #control-panel {
-            position: absolute;
-            bottom: 30px;
-            left: 20px;
-            z-index: 1000;
-            background: rgba(10, 25, 47, 0.9);
-            padding: 15px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,255,255,0.2);
-            width: 280px;
-            color: white;
-            border: 1px solid #00d4ff;
+            position: absolute; bottom: 30px; left: 20px; z-index: 1000;
+            background: rgba(0, 20, 40, 0.85); padding: 20px; border-radius: 12px;
+            border: 1px solid #00f2ff; color: white; width: 260px;
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
         }
 
         #logo-container {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 8px;
-            border: 2px solid #1a2a44;
+            position: absolute; top: 20px; right: 20px; z-index: 1000;
+            background: white; padding: 8px; border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
 
-        .navy-logo { width: 90px; height: auto; }
-        .slider { width: 100%; cursor: pointer; accent-color: #00d4ff; }
-        label { font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; }
+        .navy-logo { width: 100px; display: block; }
+        .slider { width: 100%; cursor: pointer; accent-color: #00f2ff; margin-top: 10px; }
+        .title { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; color: #00f2ff; }
     </style>
 </head>
 <body>
 
-    <div id="logo-container">
-        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Turkish_Naval_Forces_Command_Logo.svg/1200px-Turkish_Naval_Forces_Command_Logo.svg.png" alt="Deniz Kuvvetleri" class="navy-logo">
-    </div>
+<div id="logo-container">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Turkish_Naval_Forces_Command_Logo.svg/1200px-Turkish_Naval_Forces_Command_Logo.svg.png" class="navy-logo">
+</div>
 
-    <div id="control-panel">
-        <label>Bayrak Saydamlık Seviyesi</label>
-        <input type="range" id="opacitySlider" min="0" max="100" value="60" class="slider">
-        <div id="opacityVal" style="text-align:right; font-size: 12px; margin-top:5px; color: #00d4ff;">%60</div>
-    </div>
+<div id="control-panel">
+    <div class="title">Bayrak Saydamlık Seviyesi</div>
+    <input type="range" id="opacitySlider" min="0" max="100" value="70" class="slider">
+    <div id="opacityVal" style="text-align:right; margin-top:5px;">%70</div>
+</div>
 
-    <div id="map"></div>
+<div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Haritayı Akdeniz odaklı başlat
-        var map = L.map('map', {
-            center: [35.5, 25.0],
-            zoom: 5,
-            zoomControl: false // Daha temiz görünüm için
-        });
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // Haritayı Akdeniz merkezli başlat
+    const map = L.map('map', { center: [35, 25], zoom: 5, zoomControl: false });
 
-        // Deniz tabanlı koyu tema (Askeri harita stili)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: 'TDK Akdeniz İzleme Sistemi'
-        }).addTo(map);
+    // Koyu askeri tema
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
-        // Kapsamlı Akdeniz Ülkeleri Listesi ve Bayrak URL'leri
-        const flags = {
-            "Turkey": "tr", "Northern Cyprus": "tr", "Cyprus": "cy",
-            "Greece": "gr", "Italy": "it", "Spain": "es", "France": "fr",
-            "Egypt": "eg", "Libya": "ly", "Tunisia": "tn", "Algeria": "dz",
-            "Morocco": "ma", "Syria": "sy", "Lebanon": "lb", "Israel": "il",
-            "Palestine": "ps", "Albania": "al", "Croatia": "hr", "Montenegro": "me",
-            "Slovenia": "si", "Malta": "mt"
-        };
+    // Akdeniz Ülkeleri ve Bayrak Kodları (ISO 3166)
+    const countryData = {
+        "TUR": "tr", "CYP": "cy", "GRC": "gr", "ITA": "it", "ESP": "es", 
+        "FRA": "fr", "EGY": "eg", "LBY": "ly", "TUN": "tn", "DZA": "dz", 
+        "MAR": "ma", "SYR": "sy", "LBN": "lb", "ISR": "il", "PSE": "ps",
+        "ALB": "al", "HRV": "hr", "MNE": "me", "SVN": "si", "MLT": "mt"
+    };
 
-        // SVG Desenlerini Oluştur
-        const svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-        svgElement.style.display = "none";
-        document.body.appendChild(svgElement);
-        svgElement.appendChild(defs);
+    // SVG desenlerini hazırlayan fonksiyon
+    const svg = L.SVG.create('svg');
+    const defs = L.SVG.create('defs');
+    document.body.appendChild(svg);
+    svg.appendChild(defs);
 
-        Object.keys(flags).forEach(country => {
-            const pattern = document.createElementNS("http://www.w3.org/2000/svg", "pattern");
-            pattern.setAttribute("id", "flag-" + country.replace(/ /g, "-"));
-            pattern.setAttribute("patternUnits", "objectBoundingBox");
-            pattern.setAttribute("width", "1");
-            pattern.setAttribute("height", "1");
+    Object.keys(countryData).forEach(code => {
+        const pattern = L.SVG.create('pattern');
+        pattern.setAttribute('id', 'flag-' + code);
+        pattern.setAttribute('patternUnits', 'objectBoundingBox');
+        pattern.setAttribute('width', '1');
+        pattern.setAttribute('height', '1');
 
-            const image = document.createElementNS("http://www.w3.org/2000/svg", "image");
-            image.setAttributeNS("http://www.w3.org/1999/xlink", "href", `https://flagcdn.com/w1280/${flags[country]}.png`);
-            image.setAttribute("width", "100%");
-            image.setAttribute("height", "100%");
-            image.setAttribute("preserveAspectRatio", "none");
-            
-            pattern.appendChild(image);
-            defs.appendChild(pattern);
-        });
+        const img = L.SVG.create('image');
+        img.setAttribute('href', `https://flagcdn.com/w1280/${countryData[code]}.png`);
+        img.setAttribute('width', '100%');
+        img.setAttribute('height', '100%');
+        img.setAttribute('preserveAspectRatio', 'none');
+        
+        pattern.appendChild(img);
+        defs.appendChild(pattern);
+    });
 
-        let geojsonLayer;
+    let geojsonLayer;
 
-        // Daha detaylı dünya sınırları verisi
-        fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
-            .then(res => res.json())
-            .then(data => {
-                geojsonLayer = L.geoJson(data, {
-                    filter: function(feature) {
-                        return flags.hasOwnProperty(feature.properties.ADMIN);
-                    },
-                    style: function(feature) {
-                        return {
-                            fillColor: `url(#flag-${feature.properties.ADMIN.replace(/ /g, "-")})`,
-                            fillOpacity: 0.6,
-                            color: '#00d4ff', // Sınır rengi turkuaz/mavi
-                            weight: 1.5,
-                            opacity: 0.8
-                        };
-                    },
-                    onEachFeature: function(feature, layer) {
-                        layer.bindPopup("<b>" + feature.properties.ADMIN + "</b>");
-                    }
-                }).addTo(map);
-            });
-
-        // Slider Kontrolü
-        const slider = document.getElementById('opacitySlider');
-        const opacityText = document.getElementById('opacityVal');
-
-        slider.oninput = function() {
-            const val = this.value / 100;
-            opacityText.innerText = '%' + this.value;
-            if (geojsonLayer) {
-                geojsonLayer.setStyle({ fillOpacity: val });
+    // Yüksek çözünürlüklü ve ISO kodlu sınır verisi (Daha net sınırlar)
+    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+    .then(r => r.json())
+    .then(data => {
+        geojsonLayer = L.geoJson(data, {
+            filter: f => countryData[f.properties.ISO_A3] !== undefined,
+            style: f => ({
+                fillColor: `url(#flag-${f.properties.ISO_A3})`,
+                fillOpacity: 0.7,
+                color: '#00f2ff',
+                weight: 1.5
+            }),
+            onEachFeature: (f, l) => {
+                l.bindPopup(`<b>${f.properties.ADMIN}</b>`);
+                // Hover efekti
+                l.on('mouseover', () => l.setStyle({ weight: 3, color: '#fff' }));
+                l.on('mouseout', () => l.setStyle({ weight: 1.5, color: '#00f2ff' }));
             }
-        };
-    </script>
+        }).addTo(map);
+    });
+
+    // Slider mantığı
+    const slider = document.getElementById('opacitySlider');
+    slider.oninput = function() {
+        const val = this.value / 100;
+        document.getElementById('opacityVal').innerText = '%' + this.value;
+        if(geojsonLayer) geojsonLayer.setStyle({ fillOpacity: val });
+    };
+</script>
 </body>
 </html>
